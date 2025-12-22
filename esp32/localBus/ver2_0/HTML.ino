@@ -177,6 +177,7 @@ const char menu[] PROGMEM = R"-**-(
             }
             fieldset{
                 border-radius: 10px;
+                width: 100%;
             }
             .screen{
                 display: flex;
@@ -221,16 +222,16 @@ const char menu[] PROGMEM = R"-**-(
         </style>
 
         <div class="bar">
-            <div class="tab-item" id="config">Configuração</div>
+            <div class="tab-item" id="veiculo">Veículo</div>
             <div class="tab-item" id="rede">Rede</div>
-            <div class="tab-item" id="seg">Segurança</div>
+            <div class="tab-item" id="config">Configuração</div>
         </div>
 
         <div class="tab"></div>
 
     </template>
     <script>
-
+        var main_data = ''
         var tabs = document.querySelectorAll('.tab-item')
         for(let i=0; i<tabs.length; i++){
             tabs[i].addEventListener('click',()=>{
@@ -249,6 +250,11 @@ const char menu[] PROGMEM = R"-**-(
             }
         }
 
+        function clearURL(ent){
+            return ent[ent.length-1]== "/" ? ent.substr(0,ent.length-1) : ent
+        }
+
+
         function getHTML(file){
             const param = new URLSearchParams();
             param.append('tab',file);
@@ -265,14 +271,29 @@ const char menu[] PROGMEM = R"-**-(
             })
         }
 
+        function saveConfig(param,mess=1){
+            fetch('/saveconfig', {
+                method: 'POST',
+                body: param,
+            })
+            .then(response => {
+                return response.text(); 
+            })
+            .then(textData => {     
+                const json = JSON.parse(textData)
+                if(json.save){
+                   mess ? alert('Dados salvo com sucesso!') : null
+                }
+            })
+        }
+
     </script>
 )-**-";
 
-const char config[] PROGMEM = R"-**-(
+const char veiculo[] PROGMEM = R"-**-(
     <template>
         <style>
             fieldset{
-                width: 100%;
                 padding: 20px;
                 display: flex;
                 justify-content: center;
@@ -288,6 +309,13 @@ const char config[] PROGMEM = R"-**-(
             .on{
                 background-color: green;
             }
+
+            #edtMac{
+              text-align: center;
+              color: white;
+              width: 120px;
+            }
+
         </style>
         <fieldset>
             <legend>Internet</legend>
@@ -303,51 +331,50 @@ const char config[] PROGMEM = R"-**-(
                 <div class="inline">
                     <label for="edtIdCarro">Cód. Carro</label>
                     <input type="number" id="edtIdCarro" min="1" max="999" value="1">
+                    <button class="btn" id="btnConnect">Verificar</button>
                 </div>
                 <div class="inline">
                     <label for="edtPlaca">Placa</label>
                     <input type="text" id="edtPlaca" maxlength="7">
-                </div>                
-                <div class="inline">
-                    <label for="edtToken">Token</label>
-                    <input type="text" id="edtToken" readonly>
                 </div>
                 <div class="inline">
                     <div id="bllConnect" class="ball off"></div>
                     <div id="lblConnect">OFFLINE</div>
                 </div>
                 <div class="inline">
-                    <button class="btn" id="btnConnect">Conectar</button>
+                    <label for="edtVeic">Veículo</label>
+                    <input type="text" id="edtVeic" readonly>
+                </div>
+                <div class="inline">
+                    <label for="edtModelo">Modelo</label>
+                    <input type="text" id="edtModelo" readonly>
+                </div>
+                <div class="inline">
+                    <label for="edtGrupo">Grupo</label>
+                    <input type="text" id="edtGrupo" readonly>
+                </div>
+                <div class="inline">
+                    <label for="edtMotor">Motorista</label>
+                    <input type="text" id="edtMotor" readonly>
+                </div>
+                <div class="inline">
+                    <label for="edtToken">Token</label>
+                    <input type="text" id="edtToken" readonly>
+                </div>
+                <div class="inline">
+                    <label for="edtMac">Dispositivo</label>
+                    <input type="text" id="edtMac" readonly>
+                    <button class="btn tiny-btn" id="btnMacAdd" title="Linkar este dispositivo ao veículo">*</button>
                 </div>
             </div>
         </fieldset>
-        <fieldset>
-            <legend>Servidor</legend>
-            <div class="screen">
-                <div class="inline">
-                    <label for="edtUrl">Engine URL</label>
-                    <input type="text" id="edtUrl" maxlength="80" placeholder="ex: www.meuservidor.com.br">
-                </div>
-                <div class="inline">
-                    <label for="edtPin">Pin GPS(seg)</label>
-                    <input type="number" id="edtPin" placeholder="Tempo em Seg." value="30" min="10" max="999">
-                </div>
-                <div class="inline">
-                    <button class="btn" id="btnSave">Salvar</button>
-                </div>
-            </div>
-        </fieldset>
+
     </template>
     <script>
 
-
         getSysData()        
-        
-        function getSysData(){
 
-            function setField(field,value){
-                document.getElementById(field).value = value
-            }
+        function getSysData(){
 
             fetch('/getsysdata', {
                 method: 'POST',
@@ -356,18 +383,16 @@ const char config[] PROGMEM = R"-**-(
                 return response.text(); 
             })
             .then(textData => {
-                const json = JSON.parse(textData)
-                setField('edtUrl',json.url);
-                setField('edtPin',json.pin);
-                setField('edtIdCarro',json.id_carro);
-                setField('edtPlaca',json.placa);
-                setField('edtToken',json.token);
+                main_data = JSON.parse(textData)
+                document.getElementById('edtIdCarro').value = main_data.id_carro
+                document.getElementById('edtPlaca').value = main_data.placa
+                document.getElementById('edtToken').value = main_data.token
                 connect()
             })
         }
 
         function connect(){
-            const url = document.querySelector('#edtUrl').value.trim()+'/backend/esp/getToken.php'
+            const url = clearURL(main_data.url)+'/getToken.php'
             let id_carro = document.querySelector('#edtIdCarro').value.trim()
             const placa = document.querySelector('#edtPlaca').value.trim()
 
@@ -394,15 +419,28 @@ const char config[] PROGMEM = R"-**-(
                       if(json.payload.length){
                           document.querySelector('#edtIdCarro').value = json.payload[0].id_frota
                           document.querySelector('#edtPlaca').value = json.payload[0].placa
+                          document.querySelector('#edtVeic').value = json.payload[0].veiculo
+                          document.querySelector('#edtModelo').value = json.payload[0].modelo
+                          document.querySelector('#edtGrupo').value = json.payload[0].grupo
+                          document.querySelector('#edtMotor').value = json.payload[0].motorista
                           document.querySelector('#edtToken').value = json.payload[0].token
+                          document.querySelector('#edtMac').value = json.payload[0].device == null ? '' : json.payload[0].device
                           document.querySelector('#lblConnect').innerHTML = 'ONLINE'
                           document.querySelector('#bllConnect').classList.remove('off')
                           document.querySelector('#bllConnect').classList.add('on')
+                          document.querySelector('#edtMac').classList.remove('on')
+                          document.querySelector('#edtMac').classList.remove('off')
+                          document.querySelector('#edtMac').classList.add(document.querySelector('#edtMac').value == main_data.mac?'on':'off')
                       }else{
                           document.querySelector('#lblConnect').innerHTML = 'OFFLINE'
                           document.querySelector('#bllConnect').classList.remove('on')
                           document.querySelector('#bllConnect').classList.add('off')
                           document.querySelector('#edtToken').value = '  '
+                          document.querySelector('#edtVeic').value = ''
+                          document.querySelector('#edtModelo').value = ''
+                          document.querySelector('#edtGrupo').value = ''
+                          document.querySelector('#edtMotor').value = ''
+                          document.querySelector('#edtMac').value = ''
                       } 
                     }catch{
                       console.log(`Request Error: ${json.code}`)
@@ -416,29 +454,6 @@ const char config[] PROGMEM = R"-**-(
             })
         }
 
-        function saveConfig(param,mess=1){
-            fetch('/saveconfig', {
-                method: 'POST',
-                body: param,
-            })
-            .then(response => {
-                return response.text(); 
-            })
-            .then(textData => {     
-                const json = JSON.parse(textData)
-                if(json.save){
-                   mess ? alert('Dados salvo com sucesso!') : null
-                }
-            })
-        }
-
-        function saveServ(url,pin,id_carro,placa){
-            const param = new URLSearchParams();
-                param.append('url',url);
-                param.append('pin',pin);
-            saveConfig(param,1)
-        }
-
         function saveCar(){
             const param = new URLSearchParams();
                 param.append('id_carro',document.querySelector('#edtIdCarro').value.trim());
@@ -447,15 +462,47 @@ const char config[] PROGMEM = R"-**-(
             saveConfig(param,0)
         }
 
-        document.querySelector('#btnSave').addEventListener('click',()=>{
-            const url = document.querySelector('#edtUrl').value.trim()
-            const pin = document.querySelector('#edtPin').value.trim()
-            saveServ(url,pin)
+        function saveMacAdd(){
+            const param = new URLSearchParams();
+                param.append('id_carro',document.querySelector('#edtIdCarro').value.trim());
 
+            fetch('/savemac', {
+                method: 'POST',
+                body: param,
+            })
+            .then(response => {
+                return response.text(); 
+            })
+            .then(textData => {
+                const json = JSON.parse(textData)
+                const payload = JSON.parse(json.payload)
+                console.log(payload)
+                if(payload.save){
+                  alert('Agora este dispositivo esta ligado a este veículo no servidor.')
+                  document.querySelector('#edtMac').value = main_data.mac
+                  document.querySelector('#edtMac').classList.remove('off')
+                  document.querySelector('#edtMac').classList.add('on')
+                }
+            })
+        }
+
+        document.querySelector('#edtIdCarro').addEventListener('change',()=>{
+            document.querySelector('#edtPlaca').value = ''
         })
 
         document.querySelector('#btnConnect').addEventListener('click',()=>{
             connect()
+        })
+
+        document.querySelector('#btnMacAdd').addEventListener('click',()=>{
+          const placa = document.querySelector('#edtPlaca').value.trim()
+          if(placa.length){
+            if(confirm(`Linkar este dispositivo a placa ${placa}?`)){
+              saveMacAdd()
+            }
+          }else{
+            alert('Precisa conectar a um carro válido!')
+          }
         })
 
     </script>
@@ -639,7 +686,7 @@ const char rede[] PROGMEM = R"-**-(
     </script>
 )-**-";
 
-const char seg[] PROGMEM = R"-**-(
+const char config[] PROGMEM = R"-**-(
     <template/>
         <style></style>
 
@@ -665,10 +712,40 @@ const char seg[] PROGMEM = R"-**-(
         
             </div>
         </fieldset>
-
+        <fieldset>
+            <legend>Servidor</legend>
+            <div class="screen">
+                <div class="inline">
+                    <label for="edtUrl">Engine URL</label>
+                    <input type="text" id="edtUrl" maxlength="80" placeholder="ex: www.meuservidor.com.br">
+                </div>
+                <div class="inline">
+                    <label for="edtPin">Pin GPS(seg)</label>
+                    <input type="number" id="edtPin" placeholder="Tempo em Seg." value="30" min="10" max="999">
+                </div>
+                <div class="inline">
+                    <button class="btn" id="btnSaveServ">Salvar</button>
+                </div>
+            </div>
+        </fieldset>
     </template>
     <script>
+        getSysData()        
 
+        function getSysData(){
+
+            fetch('/getsysdata', {
+                method: 'POST',
+            })
+            .then(response => {
+                return response.text(); 
+            })
+            .then(textData => {
+                main_data = JSON.parse(textData)
+                document.getElementById('edtUrl').value = main_data.url
+                document.getElementById('edtPin').value = main_data.pin
+            })
+        }
         document.querySelector('#look1').addEventListener('click',()=>{
             const edt = document.querySelector('#edtPass')
             edt.type = edt.type == 'password' ? 'text' : 'password'
@@ -713,6 +790,13 @@ const char seg[] PROGMEM = R"-**-(
                     repass.focus()
                 }
             }
+        })
+
+          document.querySelector('#btnSaveServ').addEventListener('click',()=>{
+            const param = new URLSearchParams();
+                param.append('url',clearURL(document.querySelector('#edtUrl').value.trim()));
+                param.append('pin',document.querySelector('#edtPin').value.trim());
+            saveConfig(param,1)
         })
 
     </script>

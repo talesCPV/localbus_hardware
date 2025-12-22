@@ -220,7 +220,7 @@ void router(){
       String value = request->getParam(i)->value().c_str();
 
       if(field=="tab"){
-        const char *html = value=="config" ? config : value=="rede" ? rede : seg;
+        const char *html = value=="veiculo" ? veiculo : value=="rede" ? rede : config;
         request->send(200, "text/html", html );
       }
     }
@@ -241,6 +241,28 @@ void router(){
         param = value;
       }
     }
+    Serial.println(url);
+    Serial.println(param);
+    
+    String payload = curl_POST(url,param);
+    Serial.println(payload);
+    request->send(200, "text/plain", payload );
+  });
+
+  server.on("/savemac", HTTP_POST, [](AsyncWebServerRequest *request) {
+    int params = request->params();
+    String url = ler(68)+"/setMacAdd.php";
+    String param = "id_carro=0&mac=00:00:00:00:00:00";
+
+    for (int i = 0; i < params; i++) {
+      String field = request->getParam(i)->name().c_str();
+      String value = request->getParam(i)->value().c_str();
+      if(field == "id_carro"){
+        param = "id_carro="+value+"&mac="+WiFi.macAddress();
+      }
+    }
+    Serial.println(url);
+    Serial.println(param);
     
     String payload = curl_POST(url,param);
     Serial.println(payload);
@@ -248,7 +270,12 @@ void router(){
   });
 
   server.on("/startdevice", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String url = ler(68)+"/backend/esp/startDevice.php";
+    // Access request details
+    String clientIp = request->client()->remoteIP().toString();
+    Serial.print("startdevice -> Request from: ");
+    Serial.println(clientIp);
+
+    String url = ler(68)+"/startDevice.php";
     token = ler(164);
     Serial.println(token);
     request->send(200, "text/plain", token );
@@ -258,11 +285,36 @@ void router(){
   }
 
   void startDevice(){
-    String url = ler(68)+"/backend/esp/startDevice.php";
-    token = ler(164);
+    String url = ler(68)+"/startDevice.php";
 
     Serial.println(url);
-    Serial.println(token);
-    Serial.println(curl_POST(url,"token="+token));
+    const String payload = curl_POST(url,"mac="+WiFi.macAddress());
+
+    Serial.println(payload);
+    Serial.println(carData);
+
+    carData = JSON.parse(payload);
+    serverCom = JSON.typeof(carData) != "undefined";
+
+    if (serverCom) {
+        bool valido = 0;
+        if (carData.hasOwnProperty("payload")) {
+          Serial.print("carData[\"payload\"] = ");
+          Serial.println(carData["payload"][0]["token"]);
+          valido = carData["payload"][0]["token"] != null;
+
+        }
+        Serial.println(valido);
+        if(valido){
+          Serial.println("Carro Disponível para rastreio");
+        }else{
+          Serial.println("Carro indisponível!!!");
+        }
+
+    }else{
+      Serial.println("Server Disconnect.");
+    }
+
+    //jsonParse(payload);
 
   }

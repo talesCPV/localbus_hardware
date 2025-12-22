@@ -31,6 +31,7 @@ String curl_POST(String url, String params){
       payload = http.getString();
     }
     http.end();
+    payload = payload=="" ? "[]" : payload;
   }
   String out = "{\"code\":"+String(httpResponseCode)+",\"payload\":"+payload+"}";
   return out;

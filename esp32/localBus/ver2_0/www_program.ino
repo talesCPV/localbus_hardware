@@ -10,8 +10,6 @@ void setup() {
 //  Serial.println(curl_POST(apiEndpoint,params));
   startDevice();
 
-  Serial.println(WiFi.macAddress());
-
 }
 
 void loop(){}
